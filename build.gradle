@@ -1,0 +1,29 @@
+apply plugin: 'groovy'
+
+version = '1.0'
+
+repositories {
+    mavenCentral()
+
+    maven {
+        url 'http://boilerpipe.googlecode.com/svn/repo/'
+    }
+}
+
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.1.3'
+    compile 'redis.clients:jedis:2.0.0'
+    compile 'com.gravity:goose:2.1.22'
+    compile 'net.sourceforge.nekohtml:nekohtml:1.9.13'
+    compile 'de.l3s.boilerpipe:boilerpipe:1.2.0'
+}
+
+jar {
+    dependsOn configurations.compile
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    manifest {
+        attributes 'Implementation-Title': 'The Pieuvre - Extractor', 
+            'Implementation-Version': version, 
+            'Main-Class': 'thepieuvre.extractor.Extractor'
+    }
+}
