@@ -40,7 +40,12 @@ class Extractor {
 	}	
 
 	def extracting(String link) throws Exception {
-		def result = goose(link)
+		def result = [:]
+		try {
+			result = goose(link)
+		} catch (Exception e) {
+			println "Exception from goose ${e.getMessage()}"
+		}
 		if (result.fullText == null || result.fullText.isEmpty()) {
 			def boilerpipe = boilerpipe(link)
 			result.fullText = boilerpipe.fullText
