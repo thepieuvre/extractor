@@ -59,8 +59,9 @@ class Extractor {
 		Jedis jedis = new Jedis("localhost")
 		jedis.sadd('queues', 'queue:article')
 		while (true) {
+			def task 
 			try {
-				def task = jedis.blpop(31415, 'queue:extractor')
+				task = jedis.blpop(31415, 'queue:extractor')
 				if (task) {
 					def decoded = new JsonSlurper().parseText(task[1])
 					println "${new Date()} - Extracting content for $decoded.link"
@@ -77,6 +78,11 @@ class Extractor {
 					println "${new Date()} - Extracted and pushed to the queue:article"
 				} else {
 					continue
+				}
+			} catch (de.l3s.boilerpipe.BoilerpipeProcessingException e) {
+				println "No content ${e.getMessage()} -- repushed to the queue"
+				if (task) {
+					jedis.rpush("queue:extractor", task)
 				}
 			} catch (Exception e) {
 				e.printStackTrace()
