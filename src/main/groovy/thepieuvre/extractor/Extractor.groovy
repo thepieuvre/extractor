@@ -82,7 +82,7 @@ class Extractor {
 			} catch (de.l3s.boilerpipe.BoilerpipeProcessingException e) {
 				println "No content ${e.getMessage()} -- repushed to the queue"
 				if (task) {
-					jedis.rpush("queue:extractor", task)
+					jedis.rpush("queue:extractor", task[1])
 				}
 			} catch (Exception e) {
 				e.printStackTrace()
