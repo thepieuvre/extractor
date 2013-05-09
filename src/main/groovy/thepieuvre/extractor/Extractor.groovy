@@ -16,6 +16,8 @@ class Extractor {
 	private Goose goose
 	private ArticleExtractor boilerpipe = ArticleExtractor.INSTANCE
 
+	private static def repushed = [:]
+
 	Extractor(){
 		conf.enableImageFetching = true
 		conf.imagemagickIdentifyPath= '/usr/local/bin/identify'
@@ -60,10 +62,11 @@ class Extractor {
 		jedis.sadd('queues', 'queue:article')
 		while (true) {
 			def task 
+			def decoded
 			try {
 				task = jedis.blpop(31415, 'queue:extractor')
 				if (task) {
-					def decoded = new JsonSlurper().parseText(task[1])
+					decoded = new JsonSlurper().parseText(task[1])
 					println "${new Date()} - Extracting content for $decoded.link"
 					def extracted = extracting(decoded.link)
 					def builder = new groovy.json.JsonBuilder()
@@ -80,9 +83,17 @@ class Extractor {
 					continue
 				}
 			} catch (de.l3s.boilerpipe.BoilerpipeProcessingException e) {
-				println "No content ${e.getMessage()} -- repushed to the queue"
-				if (task) {
-					jedis.rpush("queue:extractor", task[1])
+				if (task && decoded) {
+					if (repushed[decoded.link]) {
+						println "No content ${e.getMessage()} -- already repushed / remove it"
+						repushed.remove(decoded.link)
+					} else {
+						println "No content ${e.getMessage()} -- repushed to the queue"
+						repushed[decoded.link] = new Date()
+						jedis.rpush("queue:extractor", task[1])
+					}
+				} else {
+					println "No content ${e.getMessage()}"
 				}
 			} catch (Exception e) {
 				e.printStackTrace()
