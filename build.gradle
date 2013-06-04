@@ -16,6 +16,7 @@ dependencies {
     compile 'com.gravity:goose:2.1.22'
     compile 'net.sourceforge.nekohtml:nekohtml:1.9.13'
     compile 'de.l3s.boilerpipe:boilerpipe:1.2.0'
+    compile 'com.cybozu.labs:langdetect:1.1-20120112'
 }
 
 jar {

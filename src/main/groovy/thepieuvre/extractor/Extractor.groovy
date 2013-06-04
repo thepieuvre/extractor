@@ -1,5 +1,7 @@
 package thepieuvre.extractor
 
+import com.cybozu.labs.langdetect.Detector
+import com.cybozu.labs.langdetect.DetectorFactory
 import com.gravity.goose.Configuration
 import com.gravity.goose.Goose
 import de.l3s.boilerpipe.extractors.ArticleExtractor
@@ -18,11 +20,12 @@ class Extractor {
 
 	private static def repushed = [:]
 
-	Extractor(){
+	Extractor(File profileDirectory){
 		conf.enableImageFetching = true
 		conf.imagemagickIdentifyPath= '/usr/local/bin/identify'
 		conf.imagemagickConvertPath = '/usr/local/bin/convert'
 		goose = new Goose(conf)
+		DetectorFactory.loadProfile(profileDirectory)
 	}
 
 	def goose(String link) throws Exception {
@@ -56,6 +59,13 @@ class Extractor {
 		return result
 	}
 
+	def guessLang(String text) {
+		Detector detector = DetectorFactory.create()
+		detector.append(text)
+
+		detector.detect()
+	}
+
 	def redisMode() {
 		println 'Starting listenning to the queue:extractor'
 		Jedis jedis = new Jedis("localhost")
@@ -76,6 +86,7 @@ class Extractor {
 						extractor extracted.extractor
 						mainImage extracted.mainImage
 						fullText extracted.fullText
+						lang guessLang(extracted.fullText)
 					}
 					jedis.rpush("queue:article", builder.toString())
 					println "${new Date()} - Extracted and pushed to the queue:article"
@@ -103,12 +114,13 @@ class Extractor {
 
 	static void main(String [] args) {
 		println "Starting extractor"
-		Extractor extractor = new Extractor()
 
-		if (args.size() != 1) {
+		if (args.size() != 2) {
 			System.err.println("Not enought arguments")
 			System.exit(1)
 		}
+
+		Extractor extractor = new Extractor(new File(args[1]))
 
 		if (args[0] == '--redis-mode') {
 			extractor.redisMode()
@@ -116,10 +128,13 @@ class Extractor {
 			try {
 				def goose = extractor.goose(args[0])
 				def boilerpipe = extractor.boilerpipe(args[0])
+				def lang = extractor.guessLang((goose.fullText)?:boilerpipe.fullText)
 
 				println goose
 				println '--------------------'
 				println boilerpipe
+				println '--------------------'
+				println lang
 			} catch(e) {
 				e.printStackTrace()
 			}
