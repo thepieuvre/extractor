@@ -60,10 +60,15 @@ class Extractor {
 	}
 
 	def guessLang(String text) {
-		Detector detector = DetectorFactory.create()
-		detector.append(text)
+		try {
+			Detector detector = DetectorFactory.create()
+			detector.append(text)
 
-		detector.detect()
+			return detector.detect()
+		} catch (com.cybozu.labs.langdetect.LangDetectException e) {
+			println "No text for guessing"
+			return 'no-lang'
+		}
 	}
 
 	def redisMode() {
@@ -79,6 +84,7 @@ class Extractor {
 					decoded = new JsonSlurper().parseText(task[1])
 					println "${new Date()} - Extracting content for $decoded.link"
 					def extracted = extracting(decoded.link)
+					def guessLang = (extracted?.fullText)?guessLang(extracted.fullText):'no-lang'
 					def builder = new groovy.json.JsonBuilder()
 					def root = builder.content {
 						id decoded.id
@@ -86,7 +92,7 @@ class Extractor {
 						extractor extracted.extractor
 						mainImage extracted.mainImage
 						fullText extracted.fullText
-						lang guessLang(extracted.fullText)
+						lang guessLang
 					}
 					jedis.rpush("queue:article", builder.toString())
 					println "${new Date()} - Extracted and pushed to the queue:article"
