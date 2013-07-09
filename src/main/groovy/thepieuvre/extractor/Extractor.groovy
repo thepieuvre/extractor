@@ -14,6 +14,9 @@ import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
 
 class Extractor {
+
+	def printErr = System.err.&println
+
 	private Configuration conf = new Configuration()
 	private Goose goose
 	private ArticleExtractor boilerpipe = ArticleExtractor.INSTANCE
@@ -37,10 +40,10 @@ class Extractor {
 		return result
 	}
 
-	def boilerpipe(String link) throws Exception {
+	def boilerpipe(String text) throws Exception {
 		def result = [:]
 		result.extractor = 'Boilerpipe'
-		result.fullText = boilerpipe.getText(new URL(link))
+		result.fullText = boilerpipe.getText(text)
 		return result
 	}	
 
@@ -102,17 +105,18 @@ class Extractor {
 			} catch (de.l3s.boilerpipe.BoilerpipeProcessingException e) {
 				if (task && decoded) {
 					if (repushed[decoded.link]) {
-						println "No content ${e.getMessage()} -- already repushed / remove it"
+						println "${new Date()} - No content ${e.getMessage()} -- already repushed / remove it"
 						repushed.remove(decoded.link)
 					} else {
-						println "No content ${e.getMessage()} -- repushed to the queue"
+						println "${new Date()} - No content ${e.getMessage()} -- repushed to the queue"
 						repushed[decoded.link] = new Date()
 						jedis.rpush("queue:extractor", task[1])
 					}
 				} else {
-					println "No content ${e.getMessage()}"
+					println "${new Date()} - No content ${e.getMessage()}"
 				}
 			} catch (Exception e) {
+				printErr("${new Date()} - Problem with ${decoded}. Exception below:")
 				e.printStackTrace()
 			}
 		}
@@ -142,6 +146,7 @@ class Extractor {
 				println '--------------------'
 				println lang
 			} catch(e) {
+				printErr("${new Date()} - Exception below:")
 				e.printStackTrace()
 			}
 		}
