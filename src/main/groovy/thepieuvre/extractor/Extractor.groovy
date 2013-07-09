@@ -52,10 +52,10 @@ class Extractor {
 		try {
 			result = goose(link)
 		} catch (Exception e) {
-			println "Exception from goose ${e.getMessage()}"
+			 printErr("${new Date()} - Exception from goose ${e.getMessage()}")
 		}
 		if (result.fullText == null || result.fullText.isEmpty()) {
-			def boilerpipe = boilerpipe(link)
+			def boilerpipe = boilerpipe(result.rawHtml)
 			result.fullText = boilerpipe.fullText
 			result.extractor = boilerpipe.extractor
 		}
@@ -137,7 +137,7 @@ class Extractor {
 		} else {
 			try {
 				def goose = extractor.goose(args[0])
-				def boilerpipe = extractor.boilerpipe(args[0])
+				def boilerpipe = extractor.boilerpipe(goose.rawHtml)
 				def lang = extractor.guessLang((goose.fullText)?:boilerpipe.fullText)
 
 				println goose
