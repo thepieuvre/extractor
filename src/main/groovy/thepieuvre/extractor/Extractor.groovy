@@ -87,7 +87,7 @@ class Extractor {
 					decoded = new JsonSlurper().parseText(task[1])
 					println "${new Date()} - Extracting content for $decoded.link"
 					def extracted = extracting(decoded.link)
-					def guessLang = (extracted?.fullText)?guessLang(extracted.fullText):'no-lang'
+					def guessLang = (extracted?.fullText)?guessLang(extracted.fullText):guessLang(decoded.raw)
 					def builder = new groovy.json.JsonBuilder()
 					def root = builder.content {
 						id decoded.id
@@ -98,7 +98,7 @@ class Extractor {
 						lang guessLang
 					}
 					jedis.rpush("queue:article", builder.toString())
-					println "${new Date()} - Extracted and pushed to the queue:article"
+					println "${new Date()} - Extracted and pushed to the queue:article: $decoded.id / $guessLang"
 				} else {
 					continue
 				}
