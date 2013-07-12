@@ -55,7 +55,7 @@ class Extractor {
 			 printErr("${new Date()} - Exception from goose ${e.getMessage()}")
 		}
 		if (result.fullText == null || result.fullText.isEmpty()) {
-			def boilerpipe = boilerpipe(result.rawHtml)
+			def boilerpipe = boilerpipe(link)
 			result.fullText = boilerpipe.fullText
 			result.extractor = boilerpipe.extractor
 		}
