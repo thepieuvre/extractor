@@ -4,9 +4,12 @@ import com.cybozu.labs.langdetect.Detector
 import com.cybozu.labs.langdetect.DetectorFactory
 import com.gravity.goose.Configuration
 import com.gravity.goose.Goose
+
 import de.l3s.boilerpipe.extractors.ArticleExtractor
 
 import redis.clients.jedis.Jedis
+import redis.clients.jedis.JedisPool
+import redis.clients.jedis.JedisPoolConfig
 
 import java.net.URL
 
@@ -22,6 +25,9 @@ class Extractor {
 	private ArticleExtractor boilerpipe = ArticleExtractor.INSTANCE
 
 	private static def repushed = [:]
+
+	private static JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost", 6379, 30000)
+
 
 	Extractor(File profileDirectory){
 		conf.enableImageFetching = true
@@ -76,12 +82,12 @@ class Extractor {
 
 	def redisMode() {
 		println 'Starting listenning to the queue:extractor'
-		Jedis jedis = new Jedis("localhost")
-		jedis.sadd('queues', 'queue:article')
 		while (true) {
 			def task 
 			def decoded
+			Jedis jedis
 			try {
+				jedis = pool.getResource()
 				task = jedis.blpop(31415, 'queue:extractor')
 				if (task) {
 					decoded = new JsonSlurper().parseText(task[1])
@@ -118,8 +124,14 @@ class Extractor {
 			} catch (Exception e) {
 				printErr("${new Date()} - Problem with ${decoded}. Exception below:")
 				e.printStackTrace()
+			}  finally {
+				pool.returnResource(jedis)
 			}
 		}
+	}
+
+	void finalize() throws Throwable {
+		pool.destroy()
 	}
 
 	static void main(String [] args) {
