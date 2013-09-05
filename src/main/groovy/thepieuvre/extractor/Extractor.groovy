@@ -91,7 +91,7 @@ class Extractor {
 				task = jedis.blpop(31415, 'queue:extractor')
 				if (task) {
 					decoded = new JsonSlurper().parseText(task[1])
-					println "${new Date()} - Extracting content for $decoded.link"
+					println "${new Date()} - Extracting content for $decoded.id / $decoded.link"
 					def extracted = extracting(decoded.link)
 					def guessLang = (extracted?.fullText)?guessLang(extracted.fullText):guessLang(decoded.raw)
 					def builder = new groovy.json.JsonBuilder()
