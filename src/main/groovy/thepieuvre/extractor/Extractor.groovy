@@ -4,9 +4,12 @@ import com.cybozu.labs.langdetect.Detector
 import com.cybozu.labs.langdetect.DetectorFactory
 import com.gravity.goose.Configuration
 import com.gravity.goose.Goose
+
 import de.l3s.boilerpipe.extractors.ArticleExtractor
 
 import redis.clients.jedis.Jedis
+import redis.clients.jedis.JedisPool
+import redis.clients.jedis.JedisPoolConfig
 
 import java.net.URL
 
@@ -23,10 +26,15 @@ class Extractor {
 
 	private static def repushed = [:]
 
+	private static JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost", 6379, 30000)
+
+
 	Extractor(File profileDirectory){
 		conf.enableImageFetching = true
 		conf.imagemagickIdentifyPath= '/usr/local/bin/identify'
 		conf.imagemagickConvertPath = '/usr/local/bin/convert'
+		conf.connectionTimeout = 10000
+		conf.socketTimeout = 30000
 		goose = new Goose(conf)
 		DetectorFactory.loadProfile(profileDirectory)
 	}
@@ -76,16 +84,16 @@ class Extractor {
 
 	def redisMode() {
 		println 'Starting listenning to the queue:extractor'
-		Jedis jedis = new Jedis("localhost")
-		jedis.sadd('queues', 'queue:article')
 		while (true) {
 			def task 
 			def decoded
+			Jedis jedis
 			try {
+				jedis = pool.getResource()
 				task = jedis.blpop(31415, 'queue:extractor')
 				if (task) {
 					decoded = new JsonSlurper().parseText(task[1])
-					println "${new Date()} - Extracting content for $decoded.link"
+					println "${new Date()} - Extracting content for $decoded.id / $decoded.link"
 					def extracted = extracting(decoded.link)
 					def guessLang = (extracted?.fullText)?guessLang(extracted.fullText):guessLang(decoded.raw)
 					def builder = new groovy.json.JsonBuilder()
@@ -118,8 +126,14 @@ class Extractor {
 			} catch (Exception e) {
 				printErr("${new Date()} - Problem with ${decoded}. Exception below:")
 				e.printStackTrace()
+			}  finally {
+				pool.returnResource(jedis)
 			}
 		}
+	}
+
+	void finalize() throws Throwable {
+		pool.destroy()
 	}
 
 	static void main(String [] args) {
