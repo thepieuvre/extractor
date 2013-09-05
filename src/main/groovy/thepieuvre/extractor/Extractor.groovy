@@ -33,6 +33,8 @@ class Extractor {
 		conf.enableImageFetching = true
 		conf.imagemagickIdentifyPath= '/usr/local/bin/identify'
 		conf.imagemagickConvertPath = '/usr/local/bin/convert'
+		conf.connectionTimeout = 10000
+		conf.socketTimeout = 30000
 		goose = new Goose(conf)
 		DetectorFactory.loadProfile(profileDirectory)
 	}
