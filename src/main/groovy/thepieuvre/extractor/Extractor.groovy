@@ -26,7 +26,7 @@ class Extractor {
 
 	private static def repushed = [:]
 
-	private static JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost", 6379, 30000)
+	private static JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost", 6379, 180000)
 
 
 	Extractor(File profileDirectory){
