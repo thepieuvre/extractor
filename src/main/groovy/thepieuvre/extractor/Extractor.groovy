@@ -24,12 +24,26 @@ class Extractor {
 	private Goose goose
 	private ArticleExtractor boilerpipe = ArticleExtractor.INSTANCE
 
-	private static def repushed = [:]
+	private def repushed = [:]
 
-	private static JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost", 6379, 180000)
+	private JedisPool pool
 
+	private static def cli
 
-	Extractor(File profileDirectory){
+  	static {
+  		cli = new CliBuilder(
+			usage: 'extractor [options] [url|redis]\n\turl: take an URL\n\tredis: redis mode', 
+        	header: 'The Pieuvre - Extractor: Smart Article fetcher',
+        	stopAtNonOption: false
+    	)
+		cli.h longOpt: 'help', 'print this message'
+		cli._ longOpt: 'redis-host', args:1, argName:'redisHost', 'redis server\'s hostname'
+		cli._ longOpt: 'redis-port', args:1, argName:'redisPort', 'redis server\'s port'
+		cli._ longOpt: 'redis-url', args:1, argName:'redisUrl', 'redis server\'s url -- server.domain.com:456'
+		cli._ longOpt: 'lang-profile', args:1, argName:'profilePath', required:true, 'Lang profile\'s path (mandatory)'
+	}
+
+	Extractor(File profileDirectory, String redisHost, int redisPort){
 		conf.enableImageFetching = true
 		conf.imagemagickIdentifyPath= '/usr/local/bin/identify'
 		conf.imagemagickConvertPath = '/usr/local/bin/convert'
@@ -37,6 +51,7 @@ class Extractor {
 		conf.socketTimeout = 30000
 		goose = new Goose(conf)
 		DetectorFactory.loadProfile(profileDirectory)
+		pool = new JedisPool(new JedisPoolConfig(), redisHost, redisPort, 180000)
 	}
 
 	def goose(String link) throws Exception {
@@ -136,21 +151,62 @@ class Extractor {
 		pool.destroy()
 	}
 
-	static void main(String [] args) {
-		println "Starting extractor"
+	private static Map parsingCli(String [] args) {
+		def opts = cli.parse(args)
 
-		if (args.size() != 2) {
-			System.err.println("Not enought arguments")
+		if (opts.h) {
+			cli.usage()
+			System.exit(0)
+		}
+
+		if (opts.arguments().size() != 1) {
+			System.err.&println 'Not enought arguments'
+			cli.usage()
 			System.exit(1)
 		}
 
-		Extractor extractor = new Extractor(new File(args[1]))
+		def parsed = [:]
 
-		if (args[0] == '--redis-mode') {
+		parsed.profilePath =  opts.'lang-profile'
+		String arg = opts.arguments()[0]
+		parsed.redisMode = (arg == 'redis')
+		if (! parsed.redisMode) {
+			parsed.url = arg
+		}
+
+		parsed.redisHost = 'localhost'
+		parsed.redisPort = 6379
+
+		if (opts.'redis-url') {
+			URI uri = new URI(opts.'redis-url')
+			parsed.redisHost = uri.getHost()
+			parsed.redisPort = uri.getPort()
+		}
+
+		if (opts.'redis-host') {
+			parsed.redisHost = opts.'redis-host'
+		}
+
+		if (opts.'redis-port') {
+			parsed.redisPort = opts.'redis-port' as int
+		}
+
+		return parsed
+	}
+
+	static void main(String [] args) {
+
+		def params = parsingCli(args)
+
+		Extractor extractor = new Extractor(new File(params.profilePath), params.redisHost, params.redisPort)
+
+		println "Starting extractor"
+
+		if (params.redisMode) {
 			extractor.redisMode()
 		} else {
 			try {
-				def goose = extractor.goose(args[0])
+				def goose = extractor.goose(params.url)
 				def boilerpipe = extractor.boilerpipe(goose.rawHtml)
 				def lang = extractor.guessLang((goose.fullText)?:boilerpipe.fullText)
 
@@ -160,7 +216,7 @@ class Extractor {
 				println '--------------------'
 				println lang
 			} catch(e) {
-				printErr("${new Date()} - Exception below:")
+				System.err.&println "${new Date()} - Exception below:"
 				e.printStackTrace()
 			}
 		}
