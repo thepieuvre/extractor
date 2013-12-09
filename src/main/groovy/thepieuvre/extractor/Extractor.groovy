@@ -71,11 +71,11 @@ class Extractor {
 		return result
 	}
 
-	def boilerpipe(String text) throws Exception {
-		log.info "Boilerpiping $text"
+	def boilerpipe(String link) throws Exception {
+		log.info "Boilerpiping $link"
 		def result = [:]
 		result.extractor = 'Boilerpipe'
-		result.fullText = boilerpipe.getText(text)
+		result.fullText text = boilerpipe.getText(new URL(text))
 		log.debug "Boilerpiped $result"
 		return result
 	}	
@@ -87,7 +87,7 @@ class Extractor {
 		} catch (Exception e) {
 			 log.info "Exception from goose ${e.getMessage()}", e
 		}
-		if (result.fullText == null || result.fullText.isEmpty()) {
+		if (! result.fullText || result.fullText.isEmpty()) {
 			log.info "No content from goose switching to boilerpipe"
 			def boilerpipe = boilerpipe(link)
 			result.fullText = boilerpipe.fullText
