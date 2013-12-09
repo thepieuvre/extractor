@@ -75,7 +75,7 @@ class Extractor {
 		log.info "Boilerpiping $link"
 		def result = [:]
 		result.extractor = 'Boilerpipe'
-		result.fullText text = boilerpipe.getText(new URL(text))
+		result.fullText = boilerpipe.getText(new URL(link))
 		log.debug "Boilerpiped $result"
 		return result
 	}	
