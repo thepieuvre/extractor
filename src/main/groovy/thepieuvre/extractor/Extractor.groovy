@@ -17,7 +17,8 @@ import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
 import groovy.util.logging.Log4j
 
-import org.apache.log4j.*
+import org.apache.log4j.PropertyConfigurator
+
 
 @Log4j
 class Extractor {
@@ -39,6 +40,7 @@ class Extractor {
         	stopAtNonOption: false
     	)
 		cli.h longOpt: 'help', 'print this message'
+		cli.c longOpt: 'config', args:1, argName:'configPath', 'configuration file\'s path'
 		cli._ longOpt: 'redis-host', args:1, argName:'redisHost', 'redis server\'s hostname'
 		cli._ longOpt: 'redis-port', args:1, argName:'redisPort', 'redis server\'s port'
 		cli._ longOpt: 'redis-url', args:1, argName:'redisUrl', 'redis server\'s url -- server.domain.com:456'
@@ -192,6 +194,11 @@ class Extractor {
 			parsed.redisPort = opts.'redis-port' as int
 		}
 
+		if (opts.c) {
+			def config = new ConfigSlurper().parse(new File(opts.c).toURL())
+			PropertyConfigurator.configure(config.toProperties())
+		}
+
 		return parsed
 	}
 
@@ -199,8 +206,11 @@ class Extractor {
 
 		def params = parsingCli(args)
 
-		Extractor extractor = new Extractor(new File(params.profilePath), params.redisHost, params.redisPort)
-
+		Extractor extractor = new Extractor(
+			new File(params.profilePath),
+			params.redisHost,
+			params.redisPort
+		)
 
 		if (params.redisMode) {
 			extractor.redisMode()
