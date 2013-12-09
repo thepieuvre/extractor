@@ -55,7 +55,9 @@ class Extractor {
 		conf.socketTimeout = 30000
 		goose = new Goose(conf)
 		DetectorFactory.loadProfile(profileDirectory)
-		pool = new JedisPool(new JedisPoolConfig(), redisHost, redisPort, 180000)
+		JedisPoolConfig config = new JedisPoolConfig();
+		config.setTestOnBorrow(true);
+		pool = new JedisPool(config, redisHost, redisPort, 180000)
 	}
 
 	def goose(String link) throws Exception {
