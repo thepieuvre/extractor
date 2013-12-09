@@ -15,10 +15,12 @@ import java.net.URL
 
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
+import groovy.util.logging.Log4j
 
+import org.apache.log4j.*
+
+@Log4j
 class Extractor {
-
-	def printErr = System.err.&println
 
 	private Configuration conf = new Configuration()
 	private Goose goose
@@ -75,7 +77,7 @@ class Extractor {
 		try {
 			result = goose(link)
 		} catch (Exception e) {
-			 printErr("${new Date()} - Exception from goose ${e.getMessage()}")
+			 log.error "${new Date()} - Exception from goose ${e.getMessage()}", e
 		}
 		if (result.fullText == null || result.fullText.isEmpty()) {
 			def boilerpipe = boilerpipe(link)
@@ -92,13 +94,13 @@ class Extractor {
 
 			return detector.detect()
 		} catch (com.cybozu.labs.langdetect.LangDetectException e) {
-			println "No text for guessing"
+			log.debug "No text for guessing"
 			return 'no-lang'
 		}
 	}
 
 	def redisMode() {
-		println 'Starting listenning to the queue:extractor'
+		log.info 'Starting listenning to the queue:extractor'
 		while (true) {
 			def task 
 			def decoded
@@ -108,7 +110,7 @@ class Extractor {
 				task = jedis.blpop(31415, 'queue:extractor')
 				if (task) {
 					decoded = new JsonSlurper().parseText(task[1])
-					println "${new Date()} - Extracting content for $decoded.id / $decoded.link"
+					log.info "${new Date()} - Extracting content for $decoded.id / $decoded.link"
 					def extracted = extracting(decoded.link)
 					def guessLang = (extracted?.fullText)?guessLang(extracted.fullText):guessLang(decoded.raw)
 					def builder = new groovy.json.JsonBuilder()
@@ -121,26 +123,25 @@ class Extractor {
 						lang guessLang
 					}
 					jedis.rpush("queue:article", builder.toString())
-					println "${new Date()} - Extracted and pushed to the queue:article: $decoded.id / $guessLang"
+					log.info "${new Date()} - Extracted and pushed to the queue:article: $decoded.id / $guessLang"
 				} else {
 					continue
 				}
 			} catch (de.l3s.boilerpipe.BoilerpipeProcessingException e) {
 				if (task && decoded) {
 					if (repushed[decoded.link]) {
-						println "${new Date()} - No content ${e.getMessage()} -- already repushed / remove it"
+						log.warn "${new Date()} - No content ${e.getMessage()} -- already repushed / remove it"
 						repushed.remove(decoded.link)
 					} else {
-						println "${new Date()} - No content ${e.getMessage()} -- repushed to the queue"
+						log.warn "${new Date()} - No content ${e.getMessage()} -- repushed to the queue"
 						repushed[decoded.link] = new Date()
 						jedis.rpush("queue:extractor", task[1])
 					}
 				} else {
-					println "${new Date()} - No content ${e.getMessage()}"
+					log.info "${new Date()} - No content ${e.getMessage()}"
 				}
 			} catch (Exception e) {
-				printErr("${new Date()} - Problem with ${decoded}. Exception below:")
-				e.printStackTrace()
+				log.error "${new Date()} - Problem with ${decoded}", e
 			}  finally {
 				pool.returnResource(jedis)
 			}
@@ -200,11 +201,11 @@ class Extractor {
 
 		Extractor extractor = new Extractor(new File(params.profilePath), params.redisHost, params.redisPort)
 
-		println "Starting extractor"
 
 		if (params.redisMode) {
 			extractor.redisMode()
 		} else {
+			println "Starting extractor"
 			try {
 				def goose = extractor.goose(params.url)
 				def boilerpipe = extractor.boilerpipe(goose.rawHtml)
